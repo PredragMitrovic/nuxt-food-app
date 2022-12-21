@@ -1,0 +1,152 @@
+NUXT
+
+###### ######  ######    Instalacija i konfiguracija pocetak: ######  ######  ######  
+
+###### npm init nuxt-app <project-name>
+###### yarn create nuxt-app <project-name>
+
+######  Prvo se setuju folderi koji fale i nuxt.configuration, gde idu pozivi ka css i header data za sajt
+
+######  posto neki folderi nisu napravljei pogledaj dokumentaciju, za asssets folderi
+yarn add --dev sass sass-loader@10 --> ovo je potrebno da bi kompajlirao sass
+
+ css: [
+    `~/assets/css/main.scss`
+  ],
+
+######   takodje treba dodati layout folderi gde bi isli footer i header, lajout isto kao kod typo3-ja sa tim da je tu dobr staviti neke osnovne stjlove, takodje moze se imati vise razlicitih layoutova.
+
+glavni layout je  default.Vue:
+
+<template>
+    <div>
+        <p> Ovde ide Heder </p>
+        <Nuxt />
+         <p> Ovde ide Footer </p>
+    </div>
+</template>
+
+ali ako ocemo imati recimo drugaciji layout, npr testlayout, isto se pravi kao defoltni samo na stranici koja ga poziva dodaje se layout poziv, pogledati testLayout stranicu:
+
+    export default {
+        layout: 'testLayout'
+    }
+
+######  jos treba napraviti plugins folder
+### `plugins`
+The plugins directory contains JavaScript plugins that you want to run before instantiating the root Vue.js Application. This is the place to add Vue plugins and to inject functions or constants. 
+Every time you need to use `Vue.use()`, you should create a file in `plugins/` and add its path to plugins in `nuxt.config.js`.
+
+###### ######  ######    Instalacija i konfiguracija Kraj: ######  ######  ######  
+
+###### ######  ######    KRUD pocetak: ######  ######  ######  
+
+1. napise se logika za set rekords
+
+--- u akcijama se napise apii poziv koji se prosledjuje mutacijama koje mutiraju state 
+
+    async GET_FOODDATA( context, data ) {
+         const callData = await axios.get('https://jsonplaceholder.typicode.com/users')
+         context.commit('updatData', callData.data)
+     },
+
+     updatData: (state, data) => {
+        state.someData = data
+    },
+    
+     someData: []
+
+--- DELETE user bitno je proslediti id, i api poziv ide + id u linku
+
+     async DELETE_USER (context, id) {
+         await axios.delete('https://jsonplaceholder.typicode.com/users/' + id)
+         context.commit("REMOVE_USER", id)
+     },
+
+    REMOVE_USER: (state, id) => {
+        state.foodData = state.foodData.filter(p => p.id !== id)
+    },
+
+--- ADD new user ovde je bitno proslediti odgovarajuci api call i potrebno je proslediti celu data 
+i bitno je u mutacijama dodati na pocetak sa unshift ili na kraj sa puch bez znaka jednako
+
+     async CREATE_USER(context, data) {
+          const callDataCreated = await axios.post('https://jsonplaceholder.typicode.com/users', data)
+          context.commit('ADD_USER', callDataCreated.data)
+     }
+
+    ADD_USER: (state, data) => {
+        state.foodData.unshift(data)
+    }
+
+--- Za edit usera prvo treba napraviti dinamicnu stanicu, u poseban folder u folderu page sa donjom crtom
+i nazivom parametra koji gadjamo recimo _id 
+
+Link ka stranici treba da bude:
+<nuxt-link :to="`/user/${user.id}`">Edit  user</nuxt-link>
+Proveriti dal radi tako sto se u data funkciji stavi id od urla preko router-a
+
+id: this.$route.params.id,
+
+-Onda se pozove getter da ispuni formu, moramo napraviti u data funkciji promenjivu koju cemo da 
+ispunimo sa getterom i povezati je sa formom u templejtu 
+
+                modal: {
+                    name: '',
+                    id: ''
+                }
+        selectedUser() {
+            let allUsers = this.getterFoodData
+            let Selectuser = allUsers.find( u => u.id === Number(this.$route.params.id));
+            this.modal.name = Selectuser.name;
+            this.modal.id = Selectuser.id;
+        },
+
+        taj metod se poziva u mounted funkciji
+
+- onda se pozove akcija za editovanje, koja ce se okidati na submitovanje forme iz templejta
+     <form @submit.prevent="edittSelectedUser">
+
+        async edittSelectedUser() {
+            await this.EDIT_VALUE(this.modal)
+            this.$router.push('/')
+        },
+
+ - logika        
+   akcija, api link mora da sadrzi id i mora da prosledjuje default
+   a u mutacijama moramo da nadjemo preko indexa findIndex(), i onda state menjamo sa tim indexom
+
+          async EDIT_VALUE (context, data) {
+            const callDataEdit = await axios.put('https://jsonplaceholder.typicode.com/users/' + data.id, data)
+            context.commit('EDIT_VALUE', callDataEdit.data);
+        }
+
+    EDIT_VALUE: (state, data) => {
+        const index = state.foodData.findIndex(u => u.id === data.id)
+        state.foodData[index] = data
+    }
+
+###### ######  ######   KRUD Kraj: ######  ######  ######  
+
+EMIT
+
+<button v-on:click="displayContent"  --- u childrenu
+
+  props: ["title", "content"],
+  data() {},
+  methods: {
+  }
+    displayContent() {
+      this.$emit("displayData", this.title);
+    },
+
+    u parentu dohvata se
+@displayData="fetchData($event)"
+
+i napravi se event
+
+    fetchData(data) {
+      this.result = data;
+    },
+
+displayData je jednako za oba
